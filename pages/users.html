@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý người dùng</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #userList {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            margin: 2px;
+            padding: 5px 10px;
+        }
+        #addUserForm {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quản lý người dùng</h1>
+    <button onclick="showAddUserForm()">Thêm người dùng mới</button>
+    <div id="userList">Đang tải danh sách người dùng...</div>
+
+    <div id="addUserForm" style="display:none;">
+        <input type="hidden" id="editUserId">
+        <input type="text" id="username" placeholder="Tên đăng nhập">
+        <input type="password" id="password" placeholder="Mật khẩu">
+        <input type="password" id="password_repeat" placeholder="Nhập lại mật khẩu">
+        <button onclick="saveUser()">Lưu</button>
+        <button onclick="cancelEdit()">Hủy</button>
+    </div>
+    <div id="decrypt">
+        <input type="text" id="ciphertxt">
+        <input type="text" id="key">
+        <input type="text" id="iv">
+        <button onclick=" ">Giải mã</button>
+        <p id="result"></p>
+    </div>
+    <script>
+        let users = [];
+        const token = localStorage.getItem('token');
+
+        document.addEventListener('DOMContentLoaded', getUsers);
+
+        function showAddUserForm() {
+            document.getElementById('addUserForm').style.display = 'block';
+            document.getElementById('editUserId').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function cancelEdit() {
+            document.getElementById('addUserForm').style.display = 'none';
+        }
+
+        async function getUsers() {
+            const userListDiv = document.getElementById('userList');
+
+            if (!token) {
+                userListDiv.textContent = 'Không tìm thấy token. Vui lòng đăng nhập lại.';
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:19006/api/list-users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    users = data.result;
+                    renderUserList();
+                } else {
+                    userListDiv.textContent = 'Không thể lấy danh sách người dùng: ' + data.message;
+                    if (response.status === 401) {
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 2000);
+                    }
+                }
+            } catch (error) {
+                userListDiv.textContent = 'Lỗi: ' + error.message;
+            }
+        }
+       
+        function renderUserList() {
+            const userListDiv = document.getElementById('userList');
+            let userListHTML = '<table><tr><th>ID</th><th>Tên đăng nhập</th><th>Hành động</th></tr>';
+            users.forEach(user => {
+                userListHTML += `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.usersname}</td>
+                        <td>
+                            <button onclick="editUser(${user.id}, '${user.usersname}')">Sửa</button>
+                            <button onclick="deleteUser('${user.usersname}')">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            userListHTML += '</table>';
+            userListDiv.innerHTML = userListHTML;
+        }
+        
+
+        function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                document.getElementById('editUserId').value = user.id;
+                document.getElementById('username').value = user.usersname;
+                document.getElementById('password').value = '';
+                document.getElementById('addUserForm').style.display = 'block';
+            }
+        }
+
+        async function saveUser() {
+            const userId = document.getElementById('editUserId').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const password_repeat = document.getElementById('password_repeat').value;
+        
+            if (!userId) {
+                // Thêm mới người dùng
+                try {
+                    const response = await fetch('http://localhost:19006/api/sign-up', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ username, password, password_repeat })
+                    });
+        
+                    const data = await response.json();
+        
+                    if (response.ok) {
+                        alert('Thêm người dùng thành công');
+                        getUsers();
+                        cancelEdit();
+                    } else {
+                        alert('Lỗi: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Lỗi: ' + error.message);
+                }
+            } else {
+                // Cập nhật người dùng
+                try {
+                    const response = await fetch(`http://localhost:19006/api/update?id=${userId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ username, password, password_repeat })
+                    });
+        
+                    const data = await response.json();
+        
+                    if (response.ok) {
+                        alert(data.message);
+                        getUsers();
+                        cancelEdit();
+                    } else {
+                        alert('Lỗi: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Lỗi: ' + error.message);
+                }
+            }
+        }
+
+        async function deleteUser(username) {
+            if (confirm(`Bạn có chắc chắn muốn xóa người dùng "${username}"?`)) {
+                try {
+                    const response = await fetch('http://localhost:19006/api/delete', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ usersname: username })
+                    });
+        
+                    const data = await response.json();
+        
+                    if (response.ok) {
+                        alert(data.message);
+                        getUsers();
+                    } else {
+                        alert('Lỗi: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Lỗi: ' + error.message);
+                }
+            }
+        }
+
+
+       
+    </script>
+</body>
+</html>

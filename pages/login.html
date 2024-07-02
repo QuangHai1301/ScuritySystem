@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input, button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Đăng nhập</h1>
+    <input type="text" id="username" placeholder="Tên đăng nhập">
+    <input type="password" id="password" placeholder="Mật khẩu">
+    <button onclick="login()">Đăng nhập</button>
+    <div id="result"></div>
+
+    <script>
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+
+            try {
+                const response = await fetch('http://localhost:19006/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.textContent = 'Đăng nhập thành công. Đang chuyển hướng...';
+                    localStorage.setItem('token', data.token);
+                    setTimeout(() => {
+                        window.location.href = 'users.html';
+                    }, 1000);
+                } else {
+                    resultDiv.textContent = 'Đăng nhập thất bại: ' + data.message;
+                }
+            } catch (error) {
+                resultDiv.textContent = 'Lỗi: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
